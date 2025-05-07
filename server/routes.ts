@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get streaks for each habit
       const habitsWithStreaks = await Promise.all(habits.map(async (habit) => {
-        const streak = await storage.getStreak(habit.id);
+        const streak = await storage.getStreak(habit.id, userId);
         return {
           ...habit,
           streak: streak || { currentStreak: 0, longestStreak: 0 }
@@ -238,16 +238,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const todayFormatted = format(today, 'yyyy年MM月dd日（eee）', { locale: ja });
       
       // Get today's progress with habits and their completion status
-      const habitProgress = habits.map(habit => {
+      const habitProgress = await Promise.all(habits.map(async habit => {
         const record = records.find(r => r.habitId === habit.id);
-        const streak = storage.getStreak(habit.id);
+        const streak = await storage.getStreak(habit.id, userId);
         
         return {
           habit,
           record,
           streak
         };
-      });
+      }));
       
       res.json({
         date: todayFormatted,

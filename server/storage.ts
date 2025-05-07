@@ -32,12 +32,12 @@ export interface IStorage {
   createStreak(streak: InsertStreak): Promise<Streak>;
 
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // express-sessionのStore型
 }
 
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any; // express-sessionのSessionStore型
 
   constructor() {
     const PostgresSessionStore = connectPg(session);
@@ -176,9 +176,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Streak methods
-  async getStreak(habitId: number): Promise<Streak | undefined> {
-    const [streak] = await db.select().from(streaks).where(eq(streaks.habitId, habitId));
-    return streak || undefined;
+  async getStreak(habitId: number, userId?: number): Promise<Streak | undefined> {
+    // ユーザーIDが指定されている場合は、habitIdとuserIdの両方でフィルタリング
+    if (userId) {
+      const [streak] = await db.select().from(streaks).where(
+        and(
+          eq(streaks.habitId, habitId),
+          eq(streaks.userId, userId)
+        )
+      );
+      return streak || undefined;
+    } else {
+      // 後方互換性のために、userId指定がない場合はhabitIdだけで検索
+      const [streak] = await db.select().from(streaks).where(eq(streaks.habitId, habitId));
+      return streak || undefined;
+    }
   }
 
   async createStreak(streak: InsertStreak): Promise<Streak> {
@@ -196,7 +208,11 @@ export class DatabaseStorage implements IStorage {
 
   // Helper methods
   private async updateStreakForCompletedHabit(habitId: number, date: Date): Promise<void> {
-    const streak = await this.getStreak(habitId);
+    // habitIdに対応するhabitを取得して、そのuserIdを使用
+    const habit = await this.getHabit(habitId);
+    if (!habit) return;
+    
+    const streak = await this.getStreak(habitId, habit.userId);
     if (!streak) return;
 
     const lastDate = streak.lastCompletedDate;
