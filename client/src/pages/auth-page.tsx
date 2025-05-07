@@ -66,16 +66,28 @@ export default function AuthPage() {
   // Form submissions
   const onLoginSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    await loginMutation.mutateAsync(data);
-    setIsLoading(false);
+    try {
+      await loginMutation.mutateAsync(data);
+    } catch (error) {
+      // エラーは loginMutation の onError で処理されるため、ここでの追加処理は不要
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const onRegisterSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
-    // Remove confirmPassword as it's not part of the API schema
-    const { confirmPassword, ...registerData } = data;
-    await registerMutation.mutateAsync(registerData);
-    setIsLoading(false);
+    try {
+      // Remove confirmPassword as it's not part of the API schema
+      const { confirmPassword, ...registerData } = data;
+      await registerMutation.mutateAsync(registerData);
+    } catch (error) {
+      // エラーは registerMutation の onError で処理されるため、ここでの追加処理は不要
+      console.error("Registration error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
