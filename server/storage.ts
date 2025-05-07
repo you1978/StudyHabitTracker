@@ -1,9 +1,9 @@
 import { users, type User, type InsertUser, habits, type Habit, type InsertHabit, habitRecords, type HabitRecord, type InsertHabitRecord, streaks, type Streak, type InsertStreak } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { db } from './db';
+import { eq, and, gte, lte } from 'drizzle-orm';
+import connectPg from "connect-pg-simple";
 import session from "express-session";
-
-// Create memory store for sessions
-const MemoryStore = createMemoryStore(session);
+import { Pool } from '@neondatabase/serverless';
 
 export interface IStorage {
   // User management
@@ -35,81 +35,58 @@ export interface IStorage {
   sessionStore: session.SessionStore;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private habits: Map<number, Habit>;
-  private habitRecords: Map<number, HabitRecord>;
-  private streakMap: Map<number, Streak>;
-  private userCurrentId: number;
-  private habitCurrentId: number;
-  private recordCurrentId: number;
-  private streakCurrentId: number;
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
   sessionStore: session.SessionStore;
 
   constructor() {
-    this.users = new Map();
-    this.habits = new Map();
-    this.habitRecords = new Map();
-    this.streakMap = new Map();
-    this.userCurrentId = 1;
-    this.habitCurrentId = 1;
-    this.recordCurrentId = 1;
-    this.streakCurrentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({ 
+      pool: new Pool({ connectionString: process.env.DATABASE_URL }), 
+      createTableIfMissing: true 
     });
   }
 
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username.toLowerCase() === username.toLowerCase(),
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userCurrentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(id);
-    if (!user) return undefined;
-
-    const updatedUser = { ...user, ...userData };
-    this.users.set(id, updatedUser);
+    const [updatedUser] = await db.update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
     return updatedUser;
   }
 
   // Habit methods
   async getHabit(id: number): Promise<Habit | undefined> {
-    return this.habits.get(id);
+    const [habit] = await db.select().from(habits).where(eq(habits.id, id));
+    return habit || undefined;
   }
 
   async getHabitsByUserId(userId: number): Promise<Habit[]> {
-    return Array.from(this.habits.values()).filter(
-      (habit) => habit.userId === userId,
-    );
+    return db.select().from(habits).where(eq(habits.userId, userId));
   }
 
   async createHabit(habit: InsertHabit): Promise<Habit> {
-    const id = this.habitCurrentId++;
-    const newHabit: Habit = { 
-      ...habit, 
-      id, 
-      createdAt: new Date() 
-    };
-    this.habits.set(id, newHabit);
+    const [newHabit] = await db.insert(habits).values(habit).returning();
     
     // Create initial streak entry
     await this.createStreak({
-      habitId: id,
+      habitId: newHabit.id,
       userId: habit.userId,
       currentStreak: 0,
       longestStreak: 0,
@@ -120,21 +97,22 @@ export class MemStorage implements IStorage {
   }
 
   async updateHabit(id: number, habitData: Partial<Habit>): Promise<Habit | undefined> {
-    const habit = await this.getHabit(id);
-    if (!habit) return undefined;
-
-    const updatedHabit = { ...habit, ...habitData };
-    this.habits.set(id, updatedHabit);
+    const [updatedHabit] = await db.update(habits)
+      .set(habitData)
+      .where(eq(habits.id, id))
+      .returning();
     return updatedHabit;
   }
 
   async deleteHabit(id: number): Promise<boolean> {
-    return this.habits.delete(id);
+    const [deletedHabit] = await db.delete(habits).where(eq(habits.id, id)).returning();
+    return !!deletedHabit;
   }
 
   // Habit record methods
   async getHabitRecord(id: number): Promise<HabitRecord | undefined> {
-    return this.habitRecords.get(id);
+    const [record] = await db.select().from(habitRecords).where(eq(habitRecords.id, id));
+    return record || undefined;
   }
 
   async getHabitRecordByDate(habitId: number, date: Date): Promise<HabitRecord | undefined> {
@@ -144,35 +122,33 @@ export class MemStorage implements IStorage {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
     
-    return Array.from(this.habitRecords.values()).find(
-      (record) => 
-        record.habitId === habitId && 
-        record.date >= startOfDay && 
-        record.date <= endOfDay
+    const [record] = await db.select().from(habitRecords).where(
+      and(
+        eq(habitRecords.habitId, habitId),
+        gte(habitRecords.date, startOfDay),
+        lte(habitRecords.date, endOfDay)
+      )
     );
+    
+    return record || undefined;
   }
 
-  async getHabitRecordsByUserId(
-    userId: number, 
-    startDate?: Date, 
-    endDate?: Date
-  ): Promise<HabitRecord[]> {
-    return Array.from(this.habitRecords.values()).filter(
-      (record) => {
-        if (record.userId !== userId) return false;
-        
-        if (startDate && record.date < startDate) return false;
-        if (endDate && record.date > endDate) return false;
-        
-        return true;
-      }
-    );
+  async getHabitRecordsByUserId(userId: number, startDate?: Date, endDate?: Date): Promise<HabitRecord[]> {
+    let query = db.select().from(habitRecords).where(eq(habitRecords.userId, userId));
+    
+    if (startDate) {
+      query = query.where(gte(habitRecords.date, startDate));
+    }
+    
+    if (endDate) {
+      query = query.where(lte(habitRecords.date, endDate));
+    }
+    
+    return query;
   }
 
   async createHabitRecord(record: InsertHabitRecord): Promise<HabitRecord> {
-    const id = this.recordCurrentId++;
-    const newRecord: HabitRecord = { ...record, id };
-    this.habitRecords.set(id, newRecord);
+    const [newRecord] = await db.insert(habitRecords).values(record).returning();
     
     // Update streak if completed
     if (record.completed) {
@@ -186,17 +162,14 @@ export class MemStorage implements IStorage {
     const record = await this.getHabitRecord(id);
     if (!record) return undefined;
 
-    const updatedRecord = { ...record, ...recordData };
-    this.habitRecords.set(id, updatedRecord);
+    const [updatedRecord] = await db.update(habitRecords)
+      .set(recordData)
+      .where(eq(habitRecords.id, id))
+      .returning();
     
-    // Update streak if completion status changed
+    // Recalculate streak if completed status changed
     if (record.completed !== updatedRecord.completed) {
-      if (updatedRecord.completed) {
-        await this.updateStreakForCompletedHabit(record.habitId, record.date);
-      } else {
-        // Recalculate streak if habit was marked as not completed
-        await this.recalculateStreak(record.habitId);
-      }
+      await this.recalculateStreak(updatedRecord.habitId);
     }
     
     return updatedRecord;
@@ -204,24 +177,20 @@ export class MemStorage implements IStorage {
 
   // Streak methods
   async getStreak(habitId: number): Promise<Streak | undefined> {
-    return Array.from(this.streakMap.values()).find(
-      (streak) => streak.habitId === habitId
-    );
+    const [streak] = await db.select().from(streaks).where(eq(streaks.habitId, habitId));
+    return streak || undefined;
   }
 
   async createStreak(streak: InsertStreak): Promise<Streak> {
-    const id = this.streakCurrentId++;
-    const newStreak: Streak = { ...streak, id };
-    this.streakMap.set(id, newStreak);
+    const [newStreak] = await db.insert(streaks).values(streak).returning();
     return newStreak;
   }
 
   async updateStreak(habitId: number, streakData: Partial<Streak>): Promise<Streak | undefined> {
-    const streak = await this.getStreak(habitId);
-    if (!streak) return undefined;
-
-    const updatedStreak = { ...streak, ...streakData };
-    this.streakMap.set(streak.id, updatedStreak);
+    const [updatedStreak] = await db.update(streaks)
+      .set(streakData)
+      .where(eq(streaks.habitId, habitId))
+      .returning();
     return updatedStreak;
   }
 
@@ -240,27 +209,29 @@ export class MemStorage implements IStorage {
       // First completion
       currentStreak = 1;
     } else {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+      const lastDay = new Date(lastDate);
+      lastDay.setHours(0, 0, 0, 0);
       
-      const lastCompletedDay = new Date(lastDate);
-      lastCompletedDay.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - lastDay.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
-      if (lastCompletedDay.getTime() === yesterday.getTime()) {
+      if (diffDays === 0) {
+        // Same day, no streak change
+      } else if (diffDays === 1) {
         // Consecutive day
         currentStreak += 1;
-      } else if (lastCompletedDay.getTime() === today.getTime()) {
-        // Same day, streak doesn't change
       } else {
         // Streak broken
         currentStreak = 1;
       }
     }
     
+    const longestStreak = Math.max(currentStreak, streak.longestStreak);
+    
     await this.updateStreak(habitId, {
       currentStreak,
-      longestStreak: Math.max(currentStreak, streak.longestStreak),
-      lastCompletedDate: today
+      longestStreak,
+      lastCompletedDate: date
     });
   }
 
@@ -268,48 +239,56 @@ export class MemStorage implements IStorage {
     const habit = await this.getHabit(habitId);
     if (!habit) return;
     
-    // Get all completed records for this habit, sorted by date
-    const records = Array.from(this.habitRecords.values())
-      .filter(record => record.habitId === habitId && record.completed)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    // Get all completed records for this habit
+    const records = await db.select()
+      .from(habitRecords)
+      .where(and(
+        eq(habitRecords.habitId, habitId),
+        eq(habitRecords.completed, true)
+      ))
+      .orderBy(habitRecords.date);
     
-    let currentStreak = 0;
-    let longestStreak = 0;
-    let lastCompletedDate = null;
-    
-    if (records.length > 0) {
-      // Calculate streaks
-      currentStreak = 1;
-      lastCompletedDate = new Date(records[records.length - 1].date);
-      
-      for (let i = 1; i < records.length; i++) {
-        const prevDate = new Date(records[i-1].date);
-        prevDate.setHours(0, 0, 0, 0);
-        
-        const currDate = new Date(records[i].date);
-        currDate.setHours(0, 0, 0, 0);
-        
-        const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 1) {
-          // Consecutive day
-          currentStreak++;
-        } else if (diffDays > 1) {
-          // Streak broken
-          longestStreak = Math.max(longestStreak, currentStreak);
-          currentStreak = 1;
-        }
-      }
-      
-      longestStreak = Math.max(longestStreak, currentStreak);
+    if (records.length === 0) {
+      // No completed records, reset streak
+      await this.updateStreak(habitId, {
+        currentStreak: 0,
+        lastCompletedDate: null
+      });
+      return;
     }
     
+    // Calculate current streak
+    let currentStreak = 1;
+    let maxStreak = 1;
+    let lastDate = new Date(records[0].date);
+    lastDate.setHours(0, 0, 0, 0);
+    
+    for (let i = 1; i < records.length; i++) {
+      const currentDate = new Date(records[i].date);
+      currentDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = currentDate.getTime() - lastDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        // Consecutive day
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else if (diffDays > 1) {
+        // Streak broken
+        currentStreak = 1;
+      }
+      
+      lastDate = currentDate;
+    }
+    
+    // Update streak
     await this.updateStreak(habitId, {
       currentStreak,
-      longestStreak,
-      lastCompletedDate
+      longestStreak: maxStreak,
+      lastCompletedDate: records[records.length - 1].date
     });
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
