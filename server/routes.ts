@@ -24,6 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/habits", ensureAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
+      console.log("GET /api/habits - User ID:", userId);
       const habits = await storage.getHabitsByUserId(userId);
       
       // Get streaks for each habit
@@ -216,6 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/today", ensureAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
+      console.log("GET /api/today - User ID:", userId);
       const today = new Date();
       const todayStart = startOfDay(today);
       const todayEnd = endOfDay(today);
@@ -266,6 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/weekly-progress", ensureAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
+      console.log("GET /api/weekly-progress - User ID:", userId);
       const today = new Date();
       
       // Calculate start of week (last 7 days)
@@ -317,6 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/monthly-calendar", ensureAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
+      console.log("GET /api/monthly-calendar - User ID:", userId);
       const { month, year } = req.query;
       
       let targetDate: Date;
