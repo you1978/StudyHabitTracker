@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths, addMonths } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useAuth } from "@/hooks/use-auth";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import HabitCalendar from "@/components/habit-calendar";
@@ -12,13 +13,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function AnalyticsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const { user } = useAuth();
   
   // Fetch monthly calendar data based on currentMonth
   const {
     data: calendarData,
     isLoading: calendarLoading,
   } = useQuery({
-    queryKey: ["/api/monthly-calendar", { 
+    queryKey: ["/api/monthly-calendar", user?.id, { 
       month: currentMonth.getMonth() + 1, 
       year: currentMonth.getFullYear() 
     }],
@@ -29,7 +31,7 @@ export default function AnalyticsPage() {
     data: habitsData,
     isLoading: habitsLoading,
   } = useQuery({
-    queryKey: ["/api/habits"],
+    queryKey: ["/api/habits", user?.id],
   });
 
   // Navigate to previous month
