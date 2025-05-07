@@ -183,20 +183,23 @@ export class DatabaseStorage implements IStorage {
 
   // Streak methods
   async getStreak(habitId: number, userId?: number): Promise<Streak | undefined> {
-    // ユーザーIDが指定されている場合は、habitIdとuserIdの両方でフィルタリング
-    if (userId) {
-      const [streak] = await db.select().from(streaks).where(
-        and(
-          eq(streaks.habitId, habitId),
-          eq(streaks.userId, userId)
-        )
-      );
-      return streak || undefined;
-    } else {
-      // 後方互換性のために、userId指定がない場合はhabitIdだけで検索
-      const [streak] = await db.select().from(streaks).where(eq(streaks.habitId, habitId));
-      return streak || undefined;
+    // If userId is not provided, get the userId from the habit
+    if (!userId) {
+      const habit = await this.getHabit(habitId);
+      if (!habit) return undefined;
+      userId = habit.userId;
     }
+    
+    console.log(`getStreak - habitId: ${habitId}, userId: ${userId}`);
+    
+    // Always filter by both habitId and userId to ensure data isolation
+    const [streak] = await db.select().from(streaks).where(
+      and(
+        eq(streaks.habitId, habitId),
+        eq(streaks.userId, userId)
+      )
+    );
+    return streak || undefined;
   }
 
   async createStreak(streak: InsertStreak): Promise<Streak> {
