@@ -5,7 +5,7 @@ import { setupAuth } from "./auth";
 import { insertHabitSchema, insertHabitRecordSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { formatInTimeZone, startOfDay, endOfDay, startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
+import { startOfDay, endOfDay, startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 // Helper function to check if user is authenticated
@@ -135,10 +135,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/records", ensureAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const recordData = { ...req.body, userId };
+      
+      // 日付文字列があれば Date オブジェクトに変換
+      const recordData = { 
+        ...req.body, 
+        userId,
+        date: req.body.date ? new Date(req.body.date) : undefined
+      };
+      
+      console.log("Received record data:", JSON.stringify({
+        ...recordData,
+        date: recordData.date ? recordData.date.toISOString() : undefined
+      }));
       
       // Validate the record data
       const validatedData = insertHabitRecordSchema.parse(recordData);
+      console.log("Validated data:", JSON.stringify({
+        ...validatedData,
+        date: validatedData.date.toISOString()
+      }));
       
       // Check if habit belongs to user
       const habit = await storage.getHabit(validatedData.habitId);
