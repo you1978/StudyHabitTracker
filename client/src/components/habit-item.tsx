@@ -44,9 +44,12 @@ export default function HabitItem({ habit, record, streak, onUpdate }: HabitItem
   const toggleCompletionMutation = useMutation({
     mutationFn: async (completed: boolean) => {
       const today = new Date();
+      // ISO形式文字列に変換して送信
+      const isoDate = today.toISOString();
+      
       const payload = {
         habitId: habit.id,
-        date: today,
+        date: isoDate,
         completed,
         notes: record?.notes || ""
       };
@@ -83,9 +86,12 @@ export default function HabitItem({ habit, record, streak, onUpdate }: HabitItem
   const saveNoteMutation = useMutation({
     mutationFn: async (notes: string) => {
       const today = new Date();
+      // ISO形式文字列に変換して送信
+      const isoDate = today.toISOString();
+      
       const payload = {
         habitId: habit.id,
-        date: today,
+        date: isoDate,
         completed: isCompleted,
         notes
       };
