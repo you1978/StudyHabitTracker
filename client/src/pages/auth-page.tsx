@@ -194,7 +194,11 @@ export default function AuthPage() {
                             <Input
                               placeholder="ニックネーム"
                               disabled={isLoading}
-                              {...field}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
                             />
                           </FormControl>
                           <FormMessage />
@@ -263,30 +267,35 @@ export default function AuthPage() {
                     <FormField
                       control={registerForm.control}
                       name="goalField"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>目標分野（任意）</FormLabel>
-                          <Select
-                            disabled={isLoading}
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="選択してください" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="language">語学</SelectItem>
-                              <SelectItem value="programming">プログラミング</SelectItem>
-                              <SelectItem value="qualification">資格</SelectItem>
-                              <SelectItem value="business">ビジネススキル</SelectItem>
-                              <SelectItem value="other">その他</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        // 安全な文字列値を確保
+                        const safeValue = (typeof field.value === 'string') ? field.value : "";
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>目標分野（任意）</FormLabel>
+                            <Select
+                              disabled={isLoading}
+                              onValueChange={field.onChange}
+                              defaultValue={safeValue}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="選択してください" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="language">語学</SelectItem>
+                                <SelectItem value="programming">プログラミング</SelectItem>
+                                <SelectItem value="qualification">資格</SelectItem>
+                                <SelectItem value="business">ビジネススキル</SelectItem>
+                                <SelectItem value="other">その他</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

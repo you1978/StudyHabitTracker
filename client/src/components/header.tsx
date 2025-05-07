@@ -68,11 +68,9 @@ export default function Header() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                      <Link href="/settings">
-                        <a className="flex items-center">
-                          <Settings className="mr-2 h-4 w-4" />
-                          <span>設定</span>
-                        </a>
+                      <Link href="/settings" className="flex items-center">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>設定</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleLogout}>
@@ -106,11 +104,9 @@ export default function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <a className="flex items-center">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>設定</span>
-                    </a>
+                  <Link href="/settings" className="flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>設定</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
