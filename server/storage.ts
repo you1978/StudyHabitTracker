@@ -134,17 +134,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getHabitRecordsByUserId(userId: number, startDate?: Date, endDate?: Date): Promise<HabitRecord[]> {
-    let query = db.select().from(habitRecords).where(eq(habitRecords.userId, userId));
+    // 基本クエリを作成（ユーザーIDでフィルタリング）
+    let conditions = [eq(habitRecords.userId, userId)];
     
+    // 開始日が指定されている場合は条件に追加
     if (startDate) {
-      query = query.where(gte(habitRecords.date, startDate));
+      conditions.push(gte(habitRecords.date, startDate));
     }
     
+    // 終了日が指定されている場合は条件に追加
     if (endDate) {
-      query = query.where(lte(habitRecords.date, endDate));
+      conditions.push(lte(habitRecords.date, endDate));
     }
     
-    return query;
+    // すべての条件を AND で結合して実行
+    return db.select()
+      .from(habitRecords)
+      .where(and(...conditions));
   }
 
   async createHabitRecord(record: InsertHabitRecord): Promise<HabitRecord> {
@@ -199,9 +205,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStreak(habitId: number, streakData: Partial<Streak>): Promise<Streak | undefined> {
+    // 習慣を取得してユーザーIDを特定
+    const habit = await this.getHabit(habitId);
+    if (!habit) return undefined;
+
+    // habitIdとuserIdの両方でフィルタリングして更新
     const [updatedStreak] = await db.update(streaks)
       .set(streakData)
-      .where(eq(streaks.habitId, habitId))
+      .where(and(
+        eq(streaks.habitId, habitId),
+        eq(streaks.userId, habit.userId)
+      ))
       .returning();
     return updatedStreak;
   }
@@ -255,11 +269,12 @@ export class DatabaseStorage implements IStorage {
     const habit = await this.getHabit(habitId);
     if (!habit) return;
     
-    // Get all completed records for this habit
+    // Get all completed records for this habit（習慣の所有者のユーザーIDでもフィルタリング）
     const records = await db.select()
       .from(habitRecords)
       .where(and(
         eq(habitRecords.habitId, habitId),
+        eq(habitRecords.userId, habit.userId), // habitの所有者のユーザーIDでもフィルタリング
         eq(habitRecords.completed, true)
       ))
       .orderBy(habitRecords.date);
