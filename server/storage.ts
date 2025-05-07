@@ -49,7 +49,9 @@ export class DatabaseStorage implements IStorage {
 
   // User methods
   async getUser(id: number): Promise<User | undefined> {
+    console.log(`getUser - Looking for user with ID: ${id}`);
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    console.log(`getUser - Result: ${user ? `Found user ${user.username}` : 'User not found'}`);
     return user || undefined;
   }
 
@@ -78,7 +80,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getHabitsByUserId(userId: number): Promise<Habit[]> {
-    return db.select().from(habits).where(eq(habits.userId, userId));
+    console.log(`getHabitsByUserId - userId: ${userId}`);
+    const result = await db.select().from(habits).where(eq(habits.userId, userId));
+    console.log(`getHabitsByUserId - found ${result.length} habits for user ${userId}`);
+    return result;
   }
 
   async createHabit(habit: InsertHabit): Promise<Habit> {

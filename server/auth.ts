@@ -65,7 +65,9 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log(`Deserializing user with ID: ${id}`);
       const user = await storage.getUser(id);
+      console.log(`Deserialized user: ${user ? user.id : 'not found'}`);
       done(null, user);
     } catch (error) {
       done(error);
@@ -101,7 +103,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         return next(err);
       }
@@ -112,6 +114,7 @@ export function setupAuth(app: Express) {
         if (err) {
           return next(err);
         }
+        console.log(`Login successful for user: ${user.username} (ID: ${user.id})`);
         return res.json(user);
       });
     })(req, res, next);
