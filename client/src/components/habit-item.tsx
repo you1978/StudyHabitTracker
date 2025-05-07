@@ -61,9 +61,13 @@ export default function HabitItem({ habit, record, streak, onUpdate }: HabitItem
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/today"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/weekly-progress"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/monthly-calendar"] });
+      // ユーザーIDに関わらず全てのキャッシュを無効化する
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0] === "/api/today" || 
+          query.queryKey[0] === "/api/weekly-progress" || 
+          query.queryKey[0] === "/api/monthly-calendar"
+      });
       onUpdate();
       toast({
         title: !isCompleted ? "習慣を未完了にしました" : "習慣を完了しました",
@@ -103,7 +107,13 @@ export default function HabitItem({ habit, record, streak, onUpdate }: HabitItem
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/today"] });
+      // ユーザーIDに関わらず全てのキャッシュを無効化する
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0] === "/api/today" || 
+          query.queryKey[0] === "/api/weekly-progress" || 
+          query.queryKey[0] === "/api/monthly-calendar"
+      });
       setNoteDialogOpen(false);
       onUpdate();
       toast({
@@ -130,8 +140,14 @@ export default function HabitItem({ habit, record, streak, onUpdate }: HabitItem
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/today"] });
+      // ユーザーIDに関わらず全てのキャッシュを無効化する
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          query.queryKey[0] === "/api/habits" || 
+          query.queryKey[0] === "/api/today" || 
+          query.queryKey[0] === "/api/weekly-progress" || 
+          query.queryKey[0] === "/api/monthly-calendar"
+      });
       setDeleteDialogOpen(false);
       onUpdate();
       toast({

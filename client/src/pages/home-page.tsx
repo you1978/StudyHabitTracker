@@ -14,6 +14,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
+// APIレスポンスの型定義
+interface HabitData {
+  habit: any;
+  record: any;
+  streak: any;
+}
+
+interface TodayData {
+  date: string;
+  completed: number;
+  total: number;
+  progress: number;
+  habits: HabitData[];
+}
+
+interface WeeklyProgressDay {
+  date: string;
+  dayName: string;
+  completed: number;
+  total: number;
+  progress: number;
+  isToday: boolean;
+}
+
+interface CalendarData {
+  month: string;
+  days: Record<string, { completed: number; total: number }>;
+}
+
 export default function HomePage() {
   const { user } = useAuth();
   const [showAddHabitDialog, setShowAddHabitDialog] = useState(false);
@@ -24,7 +53,7 @@ export default function HomePage() {
     isLoading: todayLoading,
     refetch: refetchToday
   } = useQuery({
-    queryKey: ["/api/today"],
+    queryKey: ["/api/today", user?.id],  // ユーザーIDをキーに追加
   });
 
   // Fetch weekly progress data
@@ -33,7 +62,7 @@ export default function HomePage() {
     isLoading: weeklyLoading,
     refetch: refetchWeekly
   } = useQuery({
-    queryKey: ["/api/weekly-progress"],
+    queryKey: ["/api/weekly-progress", user?.id],  // ユーザーIDをキーに追加
   });
 
   // Fetch monthly calendar data
@@ -42,7 +71,7 @@ export default function HomePage() {
     isLoading: calendarLoading,
     refetch: refetchCalendar
   } = useQuery({
-    queryKey: ["/api/monthly-calendar"],
+    queryKey: ["/api/monthly-calendar", user?.id],  // ユーザーIDをキーに追加
   });
 
   // Refetch all data after a habit is added/updated
