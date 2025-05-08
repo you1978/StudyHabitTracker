@@ -14,13 +14,11 @@ export type DatabaseConfig = {
 };
 
 export function getDatabaseConfig(): DatabaseConfig {
-  // 環境変数を明示的に取得
-  const dbType = process.env.DB_TYPE || 'supabase';
-  console.log('Current environment variables:', {
-    DB_TYPE: process.env.DB_TYPE,
-    NODE_ENV: process.env.NODE_ENV,
-    PORT: process.env.PORT,
-  });
+  // 明示的にDB_TYPEを設定
+  const dbType = 'replit';
+  console.log('強制的にデータベースタイプを設定:', dbType);
+  
+  console.log('Using database type:', dbType);
   
   if (dbType === 'replit') {
     const replitUrl = process.env.REPLIT_DATABASE_URL;
@@ -60,6 +58,7 @@ export function createDatabaseConnection() {
     const db = drizzleSupabase(sql, { schema });
 
     return {
+      client: sql,
       db
     };
   } else if (config.type === 'replit') {

@@ -1,3 +1,6 @@
 import { createDatabaseConnection } from './config';
 
-export const { client, db } = createDatabaseConnection();
+// データベース接続をnullチェック付きで取得
+const connection = createDatabaseConnection();
+export const client = connection?.client || null;
+export const db = connection?.db || null;
