@@ -14,9 +14,12 @@ export type DatabaseConfig = {
 };
 
 export function getDatabaseConfig(): DatabaseConfig {
+  // 環境変数を明示的に取得
   const dbType = process.env.DB_TYPE || 'supabase';
   console.log('Current environment variables:', {
     DB_TYPE: process.env.DB_TYPE,
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT,
   });
   
   if (dbType === 'replit') {
