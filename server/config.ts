@@ -14,9 +14,9 @@ export type DatabaseConfig = {
 };
 
 export function getDatabaseConfig(): DatabaseConfig {
-  // 明示的にDB_TYPEを設定
-  const dbType = 'replit';
-  console.log('強制的にデータベースタイプを設定:', dbType);
+  // 環境変数からDB_TYPEを取得
+  const dbType = process.env.DB_TYPE?.toLowerCase() || 'replit';
+  console.log('データベースタイプを設定:', dbType);
   
   console.log('Using database type:', dbType);
   
@@ -80,4 +80,4 @@ export function createDatabaseConnection() {
 
   console.warn('⚠️ 不明なデータベースタイプ:', config.type);
   return null;
-} 
+}
