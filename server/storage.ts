@@ -50,14 +50,35 @@ export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     console.log(`getUser - Looking for user with ID: ${id}`);
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    console.log(`getUser - Result: ${user ? `Found user ${user.username}` : 'User not found'}`);
-    return user || undefined;
+    
+    if (!db) {
+      console.error('getUser - データベース接続が存在しません');
+      return undefined;
+    }
+    
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      console.log(`getUser - Result: ${user ? `Found user ${user.username}` : 'User not found'}`);
+      return user || undefined;
+    } catch (error) {
+      console.error('getUser - エラーが発生しました:', error);
+      return undefined;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
+    if (!db) {
+      console.error('getUserByUsername - データベース接続が存在しません');
+      return undefined;
+    }
+    
+    try {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user || undefined;
+    } catch (error) {
+      console.error('getUserByUsername - エラーが発生しました:', error);
+      return undefined;
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
