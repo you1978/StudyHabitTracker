@@ -33,6 +33,7 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === "production";
+  const isHttps = process.env.FORCE_HTTPS === "true" || (isProduction && !process.env.DISABLE_SECURE_COOKIE);
   
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "local-development-secret",
@@ -42,11 +43,11 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
-      secure: isProduction, // HTTPSでのみCookieを送信（本番環境）
+      secure: isHttps, // HTTPSの場合のみsecure設定
       sameSite: isProduction ? "lax" : "strict", // CSRF対策
       domain: process.env.COOKIE_DOMAIN || undefined, // 必要に応じてドメインを設定
     },
-    name: "habit.sid", // セッションCookie名を明示的に設定
+    name: "habit_session", // セッションCookie名を変更（connect.sidとの競合を避ける）
   };
 
   // AWS環境でのプロキシ設定
@@ -81,6 +82,10 @@ export function setupAuth(app: Express) {
       console.log(`[Auth] Deserializing user with ID: ${id}`);
       const user = await storage.getUser(id);
       console.log(`[Auth] Deserialized user: ${user ? user.id : 'not found'}`);
+      if (!user) {
+        console.log(`[Auth] User ${id} not found in database`);
+        return done(null, false);
+      }
       done(null, user);
     } catch (error) {
       done(error);
@@ -150,10 +155,15 @@ export function setupAuth(app: Express) {
       sessionID: req.sessionID,
       isAuthenticated: req.isAuthenticated(),
       userId: req.user?.id,
-      cookies: req.headers.cookie
+      cookies: req.headers.cookie,
+      session: req.session
     });
     if (!req.isAuthenticated()) {
-      console.log(`[Auth] User not authenticated`);
+      console.log(`[Auth] User not authenticated - Session details:`, {
+        sessionExists: !!req.session,
+        passport: req.session?.passport,
+        sessionCookie: req.session?.cookie
+      });
       return res.sendStatus(401);
     }
     res.json(req.user);

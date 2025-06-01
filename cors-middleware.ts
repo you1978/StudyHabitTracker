@@ -26,6 +26,11 @@ export function setupCors(app: Express, options: CorsOptions) {
   app.use((req: Request, res: Response, next: NextFunction) => {
     const requestOrigin = req.headers.origin;
 
+    // Skip CORS for same-origin requests
+    if (!requestOrigin) {
+      return next();
+    }
+
     // Handle origin
     if (typeof origin === 'function') {
       origin(requestOrigin, (err, allow) => {
@@ -33,17 +38,14 @@ export function setupCors(app: Express, options: CorsOptions) {
           return next(err);
         }
         if (allow) {
-          res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
+          res.setHeader('Access-Control-Allow-Origin', requestOrigin);
         }
       });
     } else if (typeof origin === 'string') {
       res.setHeader('Access-Control-Allow-Origin', origin);
     } else if (Array.isArray(origin)) {
-      if (requestOrigin && origin.includes(requestOrigin)) {
+      if (origin.includes(requestOrigin)) {
         res.setHeader('Access-Control-Allow-Origin', requestOrigin);
-      } else if (!requestOrigin && origin.length > 0) {
-        // Same-origin request, allow it
-        res.setHeader('Access-Control-Allow-Origin', origin[0]);
       }
     } else {
       res.setHeader('Access-Control-Allow-Origin', '*');
