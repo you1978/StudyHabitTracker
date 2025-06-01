@@ -32,6 +32,8 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "local-development-secret",
     resave: false,
@@ -39,10 +41,21 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    }
+      httpOnly: true,
+      secure: isProduction, // HTTPSでのみCookieを送信（本番環境）
+      sameSite: isProduction ? "lax" : "strict", // CSRF対策
+      domain: process.env.COOKIE_DOMAIN || undefined, // 必要に応じてドメインを設定
+    },
+    name: "habit.sid", // セッションCookie名を明示的に設定
   };
 
-  app.set("trust proxy", 1);
+  // AWS環境でのプロキシ設定
+  if (isProduction) {
+    app.set("trust proxy", true);
+  } else {
+    app.set("trust proxy", 1);
+  }
+  
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -65,9 +78,9 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log(`Deserializing user with ID: ${id}`);
+      console.log(`[Auth] Deserializing user with ID: ${id}`);
       const user = await storage.getUser(id);
-      console.log(`Deserialized user: ${user ? user.id : 'not found'}`);
+      console.log(`[Auth] Deserialized user: ${user ? user.id : 'not found'}`);
       done(null, user);
     } catch (error) {
       done(error);
@@ -114,7 +127,12 @@ export function setupAuth(app: Express) {
         if (err) {
           return next(err);
         }
-        console.log(`Login successful for user: ${user.username} (ID: ${user.id})`);
+        console.log(`[Auth] Login successful for user: ${user.username} (ID: ${user.id})`);
+        console.log(`[Auth] Session created:`, {
+          sessionID: req.sessionID,
+          isAuthenticated: req.isAuthenticated(),
+          sessionCookie: req.session.cookie
+        });
         return res.json(user);
       });
     })(req, res, next);
@@ -128,7 +146,16 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    console.log(`[Auth] /api/user request:`, {
+      sessionID: req.sessionID,
+      isAuthenticated: req.isAuthenticated(),
+      userId: req.user?.id,
+      cookies: req.headers.cookie
+    });
+    if (!req.isAuthenticated()) {
+      console.log(`[Auth] User not authenticated`);
+      return res.sendStatus(401);
+    }
     res.json(req.user);
   });
 }

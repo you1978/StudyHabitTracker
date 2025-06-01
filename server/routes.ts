@@ -7,6 +7,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { setupCors } from '../cors-middleware';
 
 // Helper function to check if user is authenticated
 function ensureAuthenticated(req: any, res: any, next: any) {
@@ -17,6 +18,26 @@ function ensureAuthenticated(req: any, res: any, next: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // CORS設定（本番環境用）
+  setupCors(app, {
+    origin: (origin, callback) => {
+      // 本番環境では環境変数でホワイトリストを管理
+      const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
+        process.env.ALLOWED_ORIGINS.split(',') : 
+        ['http://localhost:3000', 'http://localhost:5000'];
+      
+      // originがundefinedの場合（同一オリジン）は許可
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true, // Cookieを含むリクエストを許可
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   // Set up authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 
