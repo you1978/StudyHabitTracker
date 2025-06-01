@@ -68,8 +68,7 @@ export function setupCors(app: Express, options: CorsOptions) {
       }
 
       if (!preflightContinue) {
-        res.sendStatus(optionsSuccessStatus);
-        return;
+        return res.sendStatus(optionsSuccessStatus);
       }
     }
 
